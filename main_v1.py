@@ -372,128 +372,125 @@ class apple:
         verifyQURL = "https://idmsa.apple.com/appleauth/auth/verify/questions"
         try:
             sendQuestions = self.log_request("post", verifyQURL, headers=headers, json=json_data)
-            if sendQuestions.status_code==412:
-                repair_token = sendQuestions.headers.get('X-Apple-Repair-Session-Token')
-                logger.debug("Repair session required for %s", self.email)
-                headers = {
-                    'Accept': 'application/json;charset=utf-8',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive',
-                    'Content-Type': 'application/json',
-                    'Origin': 'https://idmsa.apple.com',
-                    'Pragma': 'no-cache',
-                    'Referer': 'https://idmsa.apple.com/',
-                    'Sec-Fetch-Dest': 'empty',
-                    'Sec-Fetch-Mode': 'cors',
-                    'Sec-Fetch-Site': 'same-origin',
-                    'Sec-GPC': '1',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-                    'X-Apple-Auth-Attributes': self.auth_attributes,
-                    'X-Apple-Domain-Id': '1',
-                    'X-Apple-Frame-Id': 'auth-km1opkz7-4rld-51cu-miyj-05sqksom',
-                    'X-Apple-I-FD-Client-Info': '{"U":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36","L":"en-US","Z":"GMT+03:00","V":"1.1","F":"sla44j1e3NlY5BNlY5BSs5uQ32SCVgecFWHOEMfpurKR0odm_dhrxbuJjkWxv55BPfs1eNk4ugHbSI_Fe2ixAwrKyQfvqBBNlY5BPY25BNnOVgw24uy.0IB"}',
-                    'X-Apple-ID-Session-Id': self.aasp,
-                    'X-Apple-OAuth-Client-Id': 'af1139274f266b22b68c2a3e7ad932cb3c0bbe854e13a79af78dcc73136882c3',
-                    'X-Apple-OAuth-Client-Type': 'firstPartyAuth',
-                    'X-Apple-OAuth-Redirect-URI': 'https://appleid.apple.com',
-                    'X-Apple-OAuth-Response-Mode': 'web_message',
-                    'X-Apple-OAuth-Response-Type': 'code',
-                    'X-Apple-OAuth-State': 'auth-km1opkz7-4rld-51cu-miyj-05sqksom',
-                    'X-Apple-Repair-Session-Token': repair_token,
-                    'X-Apple-Widget-Key': 'af1139274f266b22b68c2a3e7ad932cb3c0bbe854e13a79af78dcc73136882c3',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'scnt': self.scnt,
-                    'sec-ch-ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Brave";v="126"',
-                    'sec-ch-ua-mobile': '?0',
-                    'sec-ch-ua-platform': '"Windows"',
-                }
-                repairURL = "https://idmsa.apple.com/appleauth/auth/repair/complete"
-                repairAction = self.log_request("post", repairURL, headers=headers)
+            repair_token = sendQuestions.headers.get('X-Apple-Repair-Session-Token')
+            logger.debug("Repair session required for %s", self.email)
+            headers = {
+                'Accept': 'application/json;charset=utf-8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Content-Type': 'application/json',
+                'Origin': 'https://idmsa.apple.com',
+                'Pragma': 'no-cache',
+                'Referer': 'https://idmsa.apple.com/',
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Site': 'same-origin',
+                'Sec-GPC': '1',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+                'X-Apple-Auth-Attributes': self.auth_attributes,
+                'X-Apple-Domain-Id': '1',
+                'X-Apple-Frame-Id': 'auth-km1opkz7-4rld-51cu-miyj-05sqksom',
+                'X-Apple-I-FD-Client-Info': '{"U":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36","L":"en-US","Z":"GMT+03:00","V":"1.1","F":"sla44j1e3NlY5BNlY5BSs5uQ32SCVgecFWHOEMfpurKR0odm_dhrxbuJjkWxv55BPfs1eNk4ugHbSI_Fe2ixAwrKyQfvqBBNlY5BPY25BNnOVgw24uy.0IB"}',
+                'X-Apple-ID-Session-Id': self.aasp,
+                'X-Apple-OAuth-Client-Id': 'af1139274f266b22b68c2a3e7ad932cb3c0bbe854e13a79af78dcc73136882c3',
+                'X-Apple-OAuth-Client-Type': 'firstPartyAuth',
+                'X-Apple-OAuth-Redirect-URI': 'https://appleid.apple.com',
+                'X-Apple-OAuth-Response-Mode': 'web_message',
+                'X-Apple-OAuth-Response-Type': 'code',
+                'X-Apple-OAuth-State': 'auth-km1opkz7-4rld-51cu-miyj-05sqksom',
+                'X-Apple-Repair-Session-Token': repair_token,
+                'X-Apple-Widget-Key': 'af1139274f266b22b68c2a3e7ad932cb3c0bbe854e13a79af78dcc73136882c3',
+                'X-Requested-With': 'XMLHttpRequest',
+                'scnt': self.scnt,
+                'sec-ch-ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Brave";v="126"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"Windows"',
+            }
+            repairURL = "https://idmsa.apple.com/appleauth/auth/repair/complete"
+            repairAction = self.log_request("post", repairURL, headers=headers)
 
-                self.myacinfo = repairAction.cookies.get('myacinfo')
-                self.scnt = repairAction.headers.get('scnt')
-                self.auth_attributes = repairAction.headers.get('X-Apple-Auth-Attributes')
+            self.myacinfo = repairAction.cookies.get('myacinfo')
+            self.scnt = repairAction.headers.get('scnt')
+            self.auth_attributes = repairAction.headers.get('X-Apple-Auth-Attributes')
 
-                headers = {
-                    'Accept': 'application/json, text/plain, */*',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive',
-                    'Content-Type': 'application/json',
-                    'Pragma': 'no-cache',
-                    'Referer': 'https://appleid.apple.com/',
-                    'Sec-Fetch-Dest': 'empty',
-                    'Sec-Fetch-Mode': 'cors',
-                    'Sec-Fetch-Site': 'same-origin',
-                    'Sec-GPC': '1',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-                    'X-Apple-I-FD-Client-Info': '{"U":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36","L":"en-US","Z":"GMT+03:00","V":"1.1","F":"sla44j1e3NlY5BNlY5BSs5uQ32SCVgecFW2A2p9ffSKk6Hb9LarUqUdHz16rgNNlejV9dY.Mel9SpDK1cDvkjmxMuijjNklY5BNleBBNlYCa1nkBMfs.7wM"}',
-                    'X-Apple-I-Request-Context': 'ca',
-                    'X-Apple-I-TimeZone': 'Africa/Cairo',
-                    'scnt': self.scnt,
-                    'sec-ch-ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Brave";v="126"',
-                    'sec-ch-ua-mobile': '?0',
-                    'sec-ch-ua-platform': '"Windows"',
-                }
-                tokenURL = "https://appleid.apple.com/account/manage/gs/ws/token"
-                sendMyacinfo = self.log_request(
-                    "get", tokenURL, cookies=self.session.cookies.get_dict(), headers=headers
-                )
+            headers = {
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Content-Type': 'application/json',
+                'Pragma': 'no-cache',
+                'Referer': 'https://appleid.apple.com/',
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Site': 'same-origin',
+                'Sec-GPC': '1',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+                'X-Apple-I-FD-Client-Info': '{"U":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36","L":"en-US","Z":"GMT+03:00","V":"1.1","F":"sla44j1e3NlY5BNlY5BSs5uQ32SCVgecFW2A2p9ffSKk6Hb9LarUqUdHz16rgNNlejV9dY.Mel9SpDK1cDvkjmxMuijjNklY5BNleBBNlYCa1nkBMfs.7wM"}',
+                'X-Apple-I-Request-Context': 'ca',
+                'X-Apple-I-TimeZone': 'Africa/Cairo',
+                'scnt': self.scnt,
+                'sec-ch-ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Brave";v="126"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"Windows"',
+            }
+            tokenURL = "https://appleid.apple.com/account/manage/gs/ws/token"
+            sendMyacinfo = self.log_request(
+                "get", tokenURL, cookies=self.session.cookies.get_dict(), headers=headers
+            )
 
-                self.aidsp = sendMyacinfo.cookies.get('aidsp')
-                self.awat = sendMyacinfo.cookies.get('awat')
-                self.caw = sendMyacinfo.cookies.get('caw')
-                self.caw_at = sendMyacinfo.cookies.get('caw-at')
-                self.scnt = sendMyacinfo.headers.get('scnt')
+            self.aidsp = sendMyacinfo.cookies.get('aidsp')
+            self.awat = sendMyacinfo.cookies.get('awat')
+            self.caw = sendMyacinfo.cookies.get('caw')
+            self.caw_at = sendMyacinfo.cookies.get('caw-at')
+            self.scnt = sendMyacinfo.headers.get('scnt')
 
-                manageURL = "https://appleid.apple.com/account/manage"
-                getManage = self.log_request(
-                    "get", manageURL, cookies=self.session.cookies.get_dict(), headers=headers
-                )
-                names = getManage.json()['name']
-                self.FNAME , self.LNAME = names['firstName'] , names['lastName']
+            manageURL = "https://appleid.apple.com/account/manage"
+            getManage = self.log_request(
+                "get", manageURL, cookies=self.session.cookies.get_dict(), headers=headers
+            )
+            names = getManage.json()['name']
+            self.FNAME , self.LNAME = names['firstName'] , names['lastName']
 
-                self.dat = getManage.cookies.get('dat')
-                self.awat = getManage.cookies.get('awat')
-                self.caw_at = getManage.cookies.get('caw-at')
-                params = {
-                    'localeChange': 'true',
-                }
-                usaURL = "https://appleid.apple.com/us/"
-                gotoUSA = self.log_request(
-                    "get",
-                    usaURL,
-                    params=params,
-                    cookies=self.session.cookies.get_dict(),
-                    headers=headers,
-                )
-                self.headers = {
-                    'Accept': 'application/json, text/plain, */*',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                    'Cache-Control': 'no-cache',
-                    'Connection': 'keep-alive',
-                    'Content-Type': 'application/json',
-                    'Origin': 'https://appleid.apple.com',
-                    'Pragma': 'no-cache',
-                    'Referer': 'https://appleid.apple.com/',
-                    'Sec-Fetch-Dest': 'empty',
-                    'Sec-Fetch-Mode': 'cors',
-                    'Sec-Fetch-Site': 'same-origin',
-                    'Sec-GPC': '1',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-                    'X-Apple-Api-Key': 'cbf64fd6843ee630b463f358ea0b707b',
-                    'X-Apple-I-FD-Client-Info': '{"U":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36","L":"en-US","Z":"GMT+03:00","V":"1.1","F":".ta44j1e3NlY5BNlY5BSs5uQ32SCVgecOJVv.1J8Qei.uJtHoqvynx9MsFyxY25CKw0KBN1xL8IXeDK1cDvmjpSbuVz3Y25BNlY5cklY5BqNAE.lTjV.096"}',
-                    'X-Apple-I-Request-Context': 'ca',
-                    'X-Apple-I-TimeZone': 'Africa/Cairo',
-                    'scnt': self.scnt,
-                    'sec-ch-ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Brave";v="126"',
-                    'sec-ch-ua-mobile': '?0',
-                    'sec-ch-ua-platform': '"Windows"',
-                }
-                return True
-            else:
-                return False
+            self.dat = getManage.cookies.get('dat')
+            self.awat = getManage.cookies.get('awat')
+            self.caw_at = getManage.cookies.get('caw-at')
+            params = {
+                'localeChange': 'true',
+            }
+            usaURL = "https://appleid.apple.com/us/"
+            gotoUSA = self.log_request(
+                "get",
+                usaURL,
+                params=params,
+                cookies=self.session.cookies.get_dict(),
+                headers=headers,
+            )
+            self.headers = {
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Content-Type': 'application/json',
+                'Origin': 'https://appleid.apple.com',
+                'Pragma': 'no-cache',
+                'Referer': 'https://appleid.apple.com/',
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Site': 'same-origin',
+                'Sec-GPC': '1',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+                'X-Apple-Api-Key': 'cbf64fd6843ee630b463f358ea0b707b',
+                'X-Apple-I-FD-Client-Info': '{"U":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36","L":"en-US","Z":"GMT+03:00","V":"1.1","F":".ta44j1e3NlY5BNlY5BSs5uQ32SCVgecOJVv.1J8Qei.uJtHoqvynx9MsFyxY25CKw0KBN1xL8IXeDK1cDvmjpSbuVz3Y25BNlY5cklY5BqNAE.lTjV.096"}',
+                'X-Apple-I-Request-Context': 'ca',
+                'X-Apple-I-TimeZone': 'Africa/Cairo',
+                'scnt': self.scnt,
+                'sec-ch-ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Brave";v="126"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"Windows"',
+            }
+            return True
         except:
             self.sendAnswers()
 
