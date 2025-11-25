@@ -5,7 +5,7 @@ import json
 from faker import Faker
 from bs4 import BeautifulSoup
 import os , sys
-from getmac import get_mac_address as g 
+from getmac import get_mac_address as g
 from colorama import Fore,Style,init
 from rich import print as printf
 from rich.panel import Panel
@@ -14,9 +14,16 @@ from faker import Faker
 import secrets
 import string
 import concurrent.futures
+import logging
 
 config = configparser.ConfigParser()
 config.read('config.ini')
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
+)
+logger = logging.getLogger("apple_account_manager")
 
 init(strip=not sys.stdout.isatty())
 RESET = Fore.RESET
@@ -49,7 +56,23 @@ class apple:
         except:
             self.email , self.password , self.q1 , self.q2 , self.q3 = account[0:5]
 
+    def log_request(self, method, url, **kwargs):
+        logger.debug("Preparing %s request to %s", method.upper(), url)
+        for key in ["params", "data", "json", "headers", "cookies"]:
+            if key in kwargs and kwargs[key]:
+                logger.debug("Request %s: %s", key, kwargs[key])
+
+        response = self.session.request(method, url, **kwargs)
+
+        logger.debug(
+            "Response for %s %s: status=%s", method.upper(), url, response.status_code
+        )
+        logger.debug("Response headers: %s", dict(response.headers))
+        logger.debug("Response body: %s", response.text)
+        return response
+
     def preparing(self):
+        logger.debug("Initializing session preparation for %s", self.email)
         signInURL = "https://appleid.apple.com/sign-in"
         headers = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -63,11 +86,12 @@ class apple:
             host_port = config.get('settings','host_port')
             self.session.proxies = {'http': f'http://{user_pass}@{host_port}/',
                                     'https':f'http://{user_pass}@{host_port}/'}
+            logger.debug("Using proxy %s for account %s", host_port, self.email)
         try:
-            R0 = self.session.get(signInURL)
+            R0 = self.log_request("get", signInURL)
             self.aidsp = R0.cookies.get('aidsp')
             URL_Auth = "https://idmsa.apple.com/appleauth/auth/authorize/signin?frame_id=auth-9snr64uy-nzj0-853u-xkfj-ovrsnmu4&skVersion=7&iframeId=auth-9snr64uy-nzj0-853u-xkfj-ovrsnmu4&client_id=af1139274f266b22b68c2a3e7ad932cb3c0bbe854e13a79af78dcc73136882c3&redirect_uri=https://appleid.apple.com&response_type=code&response_mode=web_message&state=auth-9snr64uy-nzj0-853u-xkfj-ovrsnmu4&authVersion=latest"
-            R1 = self.session.get(URL_Auth)
+            R1 = self.log_request("get", URL_Auth)
             self.scnt = R1.headers.get('scnt')
             self.aasp = R1.headers.get('aasp')
             self.attributes = R1.headers.get('X-Apple-Auth-Attributes')
@@ -105,7 +129,13 @@ class apple:
             }
 
             logURL_appleid = "https://appleid.apple.com/jslog"
-            sendLogRC = self.session.post(logURL_appleid, cookies=self.session.cookies.get_dict(), headers=headers, json=json_data)
+            sendLogRC = self.log_request(
+                "post",
+                logURL_appleid,
+                cookies=self.session.cookies.get_dict(),
+                headers=headers,
+                json=json_data,
+            )
             self.aid = sendLogRC.cookies.get('aid')
             
             json_data = {
@@ -117,7 +147,7 @@ class apple:
             }
 
             logURL_idmsa = "https://idmsa.apple.com/appleauth/jslog"
-            sendLogAAP = self.session.post(logURL_idmsa, headers=headers, json=json_data)
+            sendLogAAP = self.log_request("post", logURL_idmsa, headers=headers, json=json_data)
             self.aa = sendLogAAP.cookies.get('aa')
             json_data = {
                 'title': 'Hashcash generation',
@@ -125,13 +155,20 @@ class apple:
                 'message': 'APPLE ID : Performace - 0.029 s',
                 'details': '{"pageVisibilityState":"visible"}',
             }
-            sendLogHG = self.session.post(logURL_idmsa, cookies=self.session.cookies.get_dict(), headers=headers, json=json_data)
+            sendLogHG = self.log_request(
+                "post",
+                logURL_idmsa,
+                cookies=self.session.cookies.get_dict(),
+                headers=headers,
+                json=json_data,
+            )
             self.aa = sendLogHG.cookies.get('aa')
             return True
         except Exception as e:
             self.preparing()
 
     def login(self):
+        logger.debug("Attempting login for %s", self.email)
         headers = {
             "X-Apple-Widget-Key": "af1139274f266b22b68c2a3e7ad932cb3c0bbe854e13a79af78dcc73136882c3",
             "X-Apple-I-Fd-Client-Info": '{"U":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.6533.100 Safari/537.36","L":"en-US","Z":"GMT+03:00","V":"1.1","F":"kla44j1e3NlY5BNlY5BSs5uQ32SCVgeYHaJQcuaCSKk6Hb9LarUqUdHz16rgNNlejV9dY.MelqDub9WJ6SubsKEmey855BNlY5CGWY5BOgkLT0XxU..5aC"}',
@@ -162,11 +199,23 @@ class apple:
             }
         loginURL = "https://idmsa.apple.com/appleauth/auth/signin/complete"
         try:
-            sendLogin = self.session.post(loginURL,cookies=self.session.cookies.get_dict(),headers=headers,json=json_data)
+            sendLogin = self.log_request(
+                "post",
+                loginURL,
+                cookies=self.session.cookies.get_dict(),
+                headers=headers,
+                json=json_data,
+            )
             response_data = sendLogin.json()
             if 'serviceErrors' in response_data:
                 error_code = response_data['serviceErrors'][0]['code']
                 error_message = response_data['serviceErrors'][0]['message']
+                logger.debug(
+                    "Login failed for %s with code %s and message %s",
+                    self.email,
+                    error_code,
+                    error_message,
+                )
                 if error_code == '-20101':
                     print(f"[{RED}{self.index}/{accounts_len}{RESET}] {RED}Your Apple ID or Password was incorrect.{RESET} [ {RED}{self.email}{RESET} ]")
                     with open(f"{file_name}-wrong.csv",'a+') as f:
@@ -187,11 +236,13 @@ class apple:
                 self.auth_attributes = sendLogin.headers.get('X-Apple-Auth-Attributes')
                 self.aasp = self.session.cookies.get('aasp')
                 self.aa = self.session.cookies.get('aa')
+                logger.debug("Login successful for %s", self.email)
                 return True
         except:
             self.login()
 
     def getQuestions(self):
+        logger.debug("Fetching security questions for %s", self.email)
         headers = {
             'Accept': 'text/html',
             'Accept-Language': 'en-US,en;q=0.9',
@@ -225,7 +276,9 @@ class apple:
         }
         authIdmsa = "https://idmsa.apple.com/appleauth/auth"
         try:
-            getQUS = self.session.get(authIdmsa, cookies=self.session.cookies.get_dict(), headers=headers)
+            getQUS = self.log_request(
+                "get", authIdmsa, cookies=self.session.cookies.get_dict(), headers=headers
+            )
             if getQUS.status_code == 200:
                 response_content = getQUS.content
                 soup = BeautifulSoup(response_content, 'html.parser')
@@ -234,20 +287,26 @@ class apple:
                 data = json.loads(json_content)
                 try:
                     self.questions = data["direct"]["twoSV"]["securityQuestions"]["questions"]
+                    logger.debug("Retrieved security questions for %s", self.email)
                     return True
                 except:
                     trustedPhoneNumbers = data["direct"]["twoSV"]['phoneNumberVerification']['trustedPhoneNumbers']
+                    logger.debug(
+                        "Security questions unavailable for %s, trusted numbers present", self.email
+                    )
                     return False
         except:
             self.getQuestions()
         
     def updateFile(self):
+        logger.debug("Removing processed account %s from queue", self.email)
         ACCSUPDATE.remove(self.saccount)
         with open(f'{file_name}.csv', 'w') as f:
             for acs in ACCSUPDATE:
                 f.write(f'{acs}\n')
         
     def sendAnswers(self):
+        logger.debug("Submitting security question answers for %s", self.email)
         if self.questions[0]['id'] in range(130,136):
             v1 = self.q1
         elif self.questions[0]['id'] in range(136,142):
@@ -312,9 +371,10 @@ class apple:
         }
         verifyQURL = "https://idmsa.apple.com/appleauth/auth/verify/questions"
         try:
-            sendQuestions = self.session.post(verifyQURL,headers=headers,json=json_data)
+            sendQuestions = self.log_request("post", verifyQURL, headers=headers, json=json_data)
             if sendQuestions.status_code==412:
                 repair_token = sendQuestions.headers.get('X-Apple-Repair-Session-Token')
+                logger.debug("Repair session required for %s", self.email)
                 headers = {
                     'Accept': 'application/json;charset=utf-8',
                     'Accept-Language': 'en-US,en;q=0.9',
@@ -349,7 +409,7 @@ class apple:
                     'sec-ch-ua-platform': '"Windows"',
                 }
                 repairURL = "https://idmsa.apple.com/appleauth/auth/repair/complete"
-                repairAction = self.session.post(repairURL,headers=headers)
+                repairAction = self.log_request("post", repairURL, headers=headers)
 
                 self.myacinfo = repairAction.cookies.get('myacinfo')
                 self.scnt = repairAction.headers.get('scnt')
@@ -377,7 +437,9 @@ class apple:
                     'sec-ch-ua-platform': '"Windows"',
                 }
                 tokenURL = "https://appleid.apple.com/account/manage/gs/ws/token"
-                sendMyacinfo = self.session.get(tokenURL, cookies=self.session.cookies.get_dict(), headers=headers)
+                sendMyacinfo = self.log_request(
+                    "get", tokenURL, cookies=self.session.cookies.get_dict(), headers=headers
+                )
 
                 self.aidsp = sendMyacinfo.cookies.get('aidsp')
                 self.awat = sendMyacinfo.cookies.get('awat')
@@ -386,7 +448,9 @@ class apple:
                 self.scnt = sendMyacinfo.headers.get('scnt')
 
                 manageURL = "https://appleid.apple.com/account/manage"
-                getManage = self.session.get(manageURL, cookies=self.session.cookies.get_dict(), headers=headers)
+                getManage = self.log_request(
+                    "get", manageURL, cookies=self.session.cookies.get_dict(), headers=headers
+                )
                 names = getManage.json()['name']
                 self.FNAME , self.LNAME = names['firstName'] , names['lastName']
 
@@ -397,7 +461,13 @@ class apple:
                     'localeChange': 'true',
                 }
                 usaURL = "https://appleid.apple.com/us/"
-                gotoUSA = self.session.get(usaURL, params=params, cookies=self.session.cookies.get_dict(), headers=headers)
+                gotoUSA = self.log_request(
+                    "get",
+                    usaURL,
+                    params=params,
+                    cookies=self.session.cookies.get_dict(),
+                    headers=headers,
+                )
                 self.headers = {
                     'Accept': 'application/json, text/plain, */*',
                     'Accept-Language': 'en-US,en;q=0.9',
@@ -428,14 +498,16 @@ class apple:
             self.sendAnswers()
 
     def generate_password(self):
-        letters = string.ascii_letters  
+        letters = string.ascii_letters
         digits = string.digits
         special_chars = '@!#'
         all_chars = letters + digits + special_chars
         password = ''.join(secrets.choice(all_chars) for _ in range(12))
+        logger.debug("Generated new password for %s", self.email)
         return password
 
     def start(self):
+        logger.debug("Starting automation flow for %s", self.email)
         self.preparing()
         logged = self.login()
         if logged:
@@ -443,6 +515,7 @@ class apple:
             if response:
                 final = self.sendAnswers()
                 if final:
+                    logger.debug("Login flow completed for %s", self.email)
                     print(f"[{BLUE}{self.index}/{accounts_len}{RESET}]{Fore.LIGHTCYAN_EX} Success Login .. {RESET}[ {MANGETA}{self.email}{RESET} ]")
                     askPassword = config.getboolean('settings', 'change_password')
                     askQuestions = config.getboolean('settings', 'change_questions')
@@ -456,15 +529,19 @@ class apple:
                     self.awat = self.session.cookies.get_dict()['awat']
                     self.aid = self.session.cookies.get_dict()['aid']
                     if askRegion:
+                        logger.debug("Changing region for %s", self.email)
                         res = self.changeRegion()
 
                     if askPassword:
+                        logger.debug("Changing password for %s", self.email)
                         res = self.changePassword()
 
                     if askQuestions:
+                        logger.debug("Changing security questions for %s", self.email)
                         res = self.changeQuestion()
 
                     if changeDate:
+                        logger.debug("Changing birthday for %s", self.email)
                         res = self.changeDate()
                     try:
                         self.account = f'{self.email},{self.password},{self.birthday},{self.q1},{self.q2},{self.q3}'
@@ -485,11 +562,13 @@ class apple:
 
     def changePassword(self):
         try:
+            logger.debug("Starting password change for %s", self.email)
             ranPSW = config.getboolean('password', 'password_random')
             if ranPSW:
                 self.newPassword = self.generate_password()
             else:
                 self.newPassword = config.get('password', 'password').strip()
+            logger.debug("Prepared new password for %s", self.email)
 
             URL = 'https://appleid.apple.com/account/manage/validate/password'
             headers = {
@@ -518,13 +597,13 @@ class apple:
                 "password": self.newPassword,
                 "updating": True
                 }
-            response = self.session.post(URL,headers=headers,json=payload)
+            response = self.log_request("post", URL, headers=headers, json=payload)
             URL = 'https://appleid.apple.com/account/manage/security/password'
             payload = {
                 "currentPassword": self.password,
                 "newPassword": self.newPassword
                 }
-            response = self.session.put(URL,headers=headers,json=payload)
+            response = self.log_request("put", URL, headers=headers, json=payload)
             self.password = self.newPassword
             if response.status_code == 200:
                 if 'lastPasswordChangedDate' in response.text:
@@ -536,6 +615,7 @@ class apple:
 
     def changeDate(self):
         try:
+            logger.debug("Starting birthday change for %s", self.email)
             qURL = 'https://appleid.apple.com/account/manage/security/birthday/verify'
             accinfo = self.session.cookies.get_dict()['myacinfo']
             aidsp = self.session.cookies.get_dict()['aidsp']
@@ -571,10 +651,10 @@ class apple:
             "monthOfYear": "01",
             "year": "1990"
             }
-            response = self.session.post(qURL,headers=headers,json=payload)
+            response = self.log_request("post", qURL, headers=headers, json=payload)
             if '1990-01-01' in response.text:
                 URL = 'https://appleid.apple.com/account/manage/security/birthday'
-                response = self.session.put(URL,headers=headers,json={
+                response = self.log_request("put", URL, headers=headers, json={
                                     "dayOfMonth": "01",
                                     "monthOfYear": "01",
                                     "year": "1990"
@@ -610,6 +690,7 @@ class apple:
             self.changeDate()
     def changeQuestion(self):
         try:
+            logger.debug("Starting security question change for %s", self.email)
             randomQues = config.getboolean('questions', 'qusetions_random')
             if randomQues:
                 self.q1 = 'qwe'
@@ -666,11 +747,13 @@ class apple:
                     }
                 ]
                 }
-            response = self.session.put(qURL,headers=headers,json=payload)
+            response = self.log_request("put", qURL, headers=headers, json=payload)
             if 'formattedAccountName' in response.text:
                 URL = 'https://appleid.apple.com/authenticate/password'
-                response = self.session.post(URL,headers=headers,json={"password": self.password})
-                response = self.session.put(qURL,headers=headers,json=payload)
+                response = self.log_request(
+                    "post", URL, headers=headers, json={"password": self.password}
+                )
+                response = self.log_request("put", qURL, headers=headers, json=payload)
                 if 'What is your dream' in response.text:
                     print(f"{Fore.YELLOW}[{BLUE}{self.index}/{accounts_len}{RESET}]{Fore.LIGHTGREEN_EX} Success Change Questions .. {RESET}")
                     return True
@@ -688,6 +771,7 @@ class apple:
             self.changeQuestion()
 
     def changeRegion(self):
+            logger.debug("Starting region change for %s", self.email)
             headers = {
             'Accept': 'application/json, text/plain, */*',
             'Accept-Language': 'en-US,en;q=0.9',
@@ -709,6 +793,8 @@ class apple:
                 target_region = random.choice(regions)
             else:
                 target_region = config.get('region', 'region').strip()
+
+            logger.debug("Target region for %s set to %s", self.email, target_region)
 
             region_data = {
                 "USA": {
@@ -903,7 +989,12 @@ class apple:
                 },
                 "id": 1
             }
-            response = self.session.put("https://appleid.apple.com/account/manage/payment/method/none/1", headers=headers, json=payment_data)
+            response = self.log_request(
+                "put",
+                "https://appleid.apple.com/account/manage/payment/method/none/1",
+                headers=headers,
+                json=payment_data,
+            )
             if response.status_code == 200:
                 shipping_data = {
                     "line1": region_info["billingAddress"].get("line1", ""),
@@ -921,7 +1012,12 @@ class apple:
                     "label": "SHIPPING ADDRESS",
                     "type": "shipping"
                 }
-                self.session.post("https://appleid.apple.com/account/manage/address/shipping", headers=headers, json=shipping_data)
+                self.log_request(
+                    "post",
+                    "https://appleid.apple.com/account/manage/address/shipping",
+                    headers=headers,
+                    json=shipping_data,
+                )
                 print(f"{Fore.YELLOW}[{BLUE}{self.index}/{accounts_len}{RESET}]{Fore.LIGHTGREEN_EX} Success Change Region .. {RESET}")
                 return True
             else:
@@ -944,7 +1040,16 @@ def main():
     global ACCSUPDATE, accounts_len, file_name
     try:
         LOGO()
-        x = requests.get('https://raw.githubusercontent.com/xx36Mostafa/Tasks-Python/main/region.txt').text
+        region_url = 'https://raw.githubusercontent.com/xx36Mostafa/Tasks-Python/main/region.txt'
+        logger.debug("Fetching region configuration from %s", region_url)
+        region_response = requests.get(region_url)
+        logger.debug(
+            "Region config response: status=%s headers=%s body=%s",
+            region_response.status_code,
+            dict(region_response.headers),
+            region_response.text,
+        )
+        x = region_response.text
         mac = g().upper().replace(':', '-')
         browser_num = int(input('Number Of Threads: '))
         ACCS = []
