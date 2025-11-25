@@ -15,6 +15,10 @@ import secrets
 import string
 import concurrent.futures
 import logging
+from datetime import datetime
+from pathlib import Path
+import html
+import shlex
 
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -45,6 +49,11 @@ class apple:
         self.saccount = account
         self.fake = Faker()
 
+        self.logs_dir = Path("logs")
+        self.logs_dir.mkdir(exist_ok=True)
+        self.html_log_path = self.logs_dir / "requests.html"
+        self._ensure_html_log()
+
         self.index = index + 1
         if ';' in account:
             account = account.split(";")
@@ -57,19 +66,126 @@ class apple:
         except:
             self.email , self.password , self.q1 , self.q2 , self.q3 = account[0:5]
 
+    def _ensure_html_log(self):
+        if self.html_log_path.exists():
+            return
+
+        template = """
+<!DOCTYPE html>
+<html lang=\"en\">
+<head>
+  <meta charset=\"UTF-8\" />
+  <title>AppleAccountManager Request Log</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #0b1021; color: #e2e8f0; margin: 0; padding: 0; }
+    header { background: #111827; padding: 1rem 2rem; position: sticky; top: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.5); }
+    h1 { margin: 0; font-size: 1.5rem; }
+    .entry { margin: 1rem; padding: 1rem; background: #111827; border: 1px solid #1f2937; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
+    .entry h2 { margin-top: 0; }
+    .meta { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.95rem; }
+    .meta span { background: #1f2937; padding: 0.4rem 0.7rem; border-radius: 4px; }
+    .block { margin-top: 0.5rem; }
+    pre { background: #0f172a; padding: 0.75rem; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+    code { background: #0f172a; padding: 0.2rem 0.3rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AppleAccountManager - Request Trace</h1>
+  </header>
+  <div id=\"log-container\">
+  </div>
+</body>
+</html>
+"""
+        self.html_log_path.write_text(template)
+
+    def _build_curl_command(self, prepared_request, verify=False):
+        curl_parts = ["curl"]
+        curl_parts.append("-X")
+        curl_parts.append(shlex.quote(prepared_request.method))
+
+        for header, value in prepared_request.headers.items():
+            curl_parts.extend(["-H", shlex.quote(f"{header}: {value}")])
+
+        if prepared_request.body:
+            body = (
+                prepared_request.body
+                if isinstance(prepared_request.body, str)
+                else prepared_request.body.decode(errors="replace")
+            )
+            curl_parts.extend(["--data", shlex.quote(body)])
+
+        curl_parts.append(shlex.quote(prepared_request.url))
+
+        if verify is False:
+            curl_parts.append("-k")
+
+        return " ".join(curl_parts)
+
+    def _append_html_log(self, method, url, curl_command, request_headers, request_body, response):
+        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        block = f"""
+  <div class=\"entry\">
+    <h2>{html.escape(method)} {html.escape(url)}</h2>
+    <div class=\"meta\">
+      <span><strong>Timestamp:</strong> {timestamp}</span>
+      <span><strong>Status:</strong> {response.status_code}</span>
+    </div>
+    <div class=\"block\"><strong>Curl:</strong> <code>{html.escape(curl_command)}</code></div>
+    <div class=\"block\"><strong>Request Headers</strong><pre>{html.escape(json.dumps(request_headers, indent=2))}</pre></div>
+    <div class=\"block\"><strong>Request Body</strong><pre>{html.escape(request_body)}</pre></div>
+    <div class=\"block\"><strong>Response Headers</strong><pre>{html.escape(json.dumps(dict(response.headers), indent=2))}</pre></div>
+    <div class=\"block\"><strong>Response Body</strong><pre>{html.escape(response.text)}</pre></div>
+  </div>
+"""
+
+        content = self.html_log_path.read_text()
+        insertion_point = content.rfind("</div>")
+        if insertion_point != -1:
+            updated = content[:insertion_point] + block + content[insertion_point:]
+            self.html_log_path.write_text(updated)
+
     def log_request(self, method, url, **kwargs):
-        logger.debug("Preparing %s request to %s", method.upper(), url)
+        method_upper = method.upper()
+        logger.debug("Preparing %s request to %s", method_upper, url)
         for key in ["params", "data", "json", "headers", "cookies"]:
             if key in kwargs and kwargs[key]:
                 logger.debug("Request %s: %s", key, kwargs[key])
 
-        response = self.session.request(method, url, **kwargs)
+        request = requests.Request(method_upper, url, **{k: kwargs.get(k) for k in ["headers", "params", "data", "json", "cookies"] if kwargs.get(k) is not None})
+        prepared = self.session.prepare_request(request)
+        settings = self.session.merge_environment_settings(prepared.url, kwargs.get("proxies"), kwargs.get("stream"), kwargs.get("verify"), kwargs.get("cert"))
 
+        start = datetime.utcnow()
+        response = self.session.send(prepared, allow_redirects=kwargs.get("allow_redirects", True), **settings)
+        duration_ms = (datetime.utcnow() - start).total_seconds() * 1000
+
+        curl_command = self._build_curl_command(prepared, verify=settings.get("verify"))
+        logger.info("curl command: %s", curl_command)
         logger.debug(
-            "Response for %s %s: status=%s", method.upper(), url, response.status_code
+            "Response for %s %s: status=%s in %.2fms",
+            method_upper,
+            prepared.url,
+            response.status_code,
+            duration_ms,
         )
         logger.debug("Response headers: %s", dict(response.headers))
         logger.debug("Response body: %s", response.text)
+
+        request_body = (
+            prepared.body
+            if isinstance(prepared.body, str)
+            else (prepared.body.decode(errors="replace") if prepared.body else "")
+        )
+        self._append_html_log(
+            method_upper,
+            prepared.url,
+            curl_command,
+            dict(prepared.headers),
+            request_body,
+            response,
+        )
         return response
 
     def preparing(self):
