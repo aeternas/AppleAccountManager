@@ -41,6 +41,7 @@ NOTACTIVE = 0
 class apple:
     def __init__(self,index,account):
         self.session = requests.Session()
+        self.session.verify = False
         self.saccount = account
         self.fake = Faker()
 
